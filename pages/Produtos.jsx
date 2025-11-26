@@ -1,10 +1,13 @@
+/* eslint-disable no-unused-vars */
 import { useEffect, useState } from "react";
-import { Plus, Package, Edit2, Trash2, X, Search, TrendingUp, AlertCircle } from "lucide-react";
+import { useNavigate } from 'react-router-dom';
+import { Plus, Package, Edit2, Trash2, X, Search, TrendingUp, AlertCircle, ArrowLeftCircle } from "lucide-react";
 import api from '../services/api';
 
+// Componentes Principais
 function Produtos() {
   const [produtos, setProdutos] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [editando, setEditando] = useState(null);
@@ -14,37 +17,55 @@ function Produtos() {
   const [formData, setFormData] = useState({
     nome: "",
     descricao: "",
-    quantidade: 0,
+    quantidade: "",
     preco_venda: "",
-    categoria: "",
-    fornecedor: "",
   });
 
-    const buscarProdutos = () => {
-    api.get('/produtos').then(res => setProdutos(res.data));
+  // Voltar ao Dashboard
+  const navigate = useNavigate();
+
+    const voltarAoDashboard = () => {
+      navigate('/dashboard');
+    };
+
+const buscarProdutos = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get('/produtos');
+      setProdutos(response.data);
+    } catch (err) {
+      console.error('Erro ao carregar produtos:', err);
+      alert('Erro ao carregar produtos');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Simulando dados iniciais para demonstração
+
   useEffect(() => {
 
     buscarProdutos();
   }, []);
 
+  //Atualizar formulário
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+
+  // Salvar produto (novo ou editado)
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.nome || !formData.preco || !formData.quantidade) {
+    if (!formData.nome || !formData.preco_venda || !formData.quantidade) {
       alert("Por favor, preencha todos os campos obrigatórios.");
       return;
     }
 
+
+ // Chamando dados da API
     const dadosParaEnviar = {
-      id: editando ? editando.id : crypto.randomUUID(),
       nome: formData.nome,
       descricao: formData.descricao,
       preco_venda: parseFloat(formData.preco_venda),
@@ -58,16 +79,17 @@ function Produtos() {
           await api.put(`/produtos/${editando.id}`, dadosParaEnviar);
           alert("Produto atualizado com sucesso!");
         } else {
-          await api.post(`/produtos/${editando.id}`, dadosParaEnviar);
-          alert("Produto cadastrado com sucesso!");
+          await api.post('/produtos', dadosParaEnviar);
+          alert("Produto cadastrado com sucesso!"); 
         }
     
-        buscarProdutos();    
+        await buscarProdutos();   
         resetForm();
 
 
       } catch(error) {
         console.error('Erro ao salvar produto:', error);
+        console.error('Detalhes do erro:', error.response?.data);
         alert("Erro ao salvar produto. Tente novamente.");
       } finally {
         setLoading(false);
@@ -80,33 +102,37 @@ function Produtos() {
       descricao: "",
       quantidade: "",
       preco_venda: "",
-      categoria: "",
-      fornecedor: "",
     });
     setShowModal(false);
     setEditando(null);
   };
 
+  // Editar produto
   const handleEdit = (produto) => {
     setFormData({
       nome: produto.nome,
       descricao: produto.descricao || "",
       quantidade: produto.quantidade.toString(),
-      preco: produto.preco_venda.toString(),
-      categoria: produto.categoria || "",
-      fornecedor: produto.fornecedor || "",
+      preco_venda: Number(produto.preco_venda).toFixed(2),
     });
     setEditando(produto);
     setShowModal(true);
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm("Deseja realmente excluir este produto?")) {
-      setProdutos(prev => prev.filter(p => p.id !== id));
-      alert("Produto deletado com sucesso!");
+  // Excluir produto
+  const handleDelete = async (id) => {
+    if (!window.confirm("Tem certeza que deseja excluir este produto?")) return;
+
+    try {
+      await api.delete(`/produtos/${id}`);
+      await buscarProdutos();
+      alert("Produto excluído com sucesso!");
+    } catch (err) {
+      alert("Erro ao excluir produto.");
     }
   };
 
+  // Filtragem de produtos
   const produtosFiltrados = produtos.filter(produto =>
     produto.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
     produto.descricao?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -115,10 +141,13 @@ function Produtos() {
 
   );
 
+  // Cálculos de estatísticas
   const totalProdutos = produtos.length;
   const valorTotal = produtos.reduce((acc, p) => acc + (p.preco_venda * p.quantidade), 0);
   const estoqueTotal = produtos.reduce((acc, p) => acc + p.quantidade, 0);
 
+
+//Frontend
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-violet-50 via-purple-50 to-fuchsia-50 flex items-center justify-center">
@@ -135,7 +164,7 @@ function Produtos() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-violet-50 via-purple-50 to-fuchsia-50">
-      {/* Header Premium */}
+      {/* Header*/}
       <div className="bg-white shadow-lg border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -150,6 +179,13 @@ function Produtos() {
                 <p className="text-sm text-gray-500 mt-0.5">Sistema inteligente de controle</p>
               </div>
             </div>
+            <button
+                  onClick={() => navigate('/dashboard')}
+                  className="fixed top-5 left-5 z-50 flex items-center gap-2.5 bg-white border-2 border-gray-300 text-gray-800 px-5 py-3 rounded-2xl font-bold shadow-xl hover:shadow-2xl hover:border-gray-400 hover:bg-gray-50 transform hover:scale-110 transition-all duration-300 group"
+                >
+                  <ArrowLeftCircle className="w-7 h-7 text-blue-600 group-hover:text-blue-700 transition-colors" />
+                  <span className="hidden sm:block">Dashboard</span>
+            </button>
             <button
               onClick={() => setShowModal(true)}
               className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-700 hover:to-fuchsia-700 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 hover:scale-105"
@@ -373,7 +409,7 @@ function Produtos() {
                   </label>
                   <input
                     type="number"
-                    name="preco"
+                    name="preco_venda"
                     value={formData.preco_venda}
                     onChange={handleInputChange}
                     required
@@ -399,34 +435,6 @@ function Produtos() {
                     placeholder="0"
                   />
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
-                  Categoria
-                </label>
-                <input
-                  type="text"
-                  name="categoria"
-                  value={formData.categoria}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                  placeholder="Ex: Eletrônicos, Periféricos, etc."
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
-                  Fornecedor
-                </label>
-                <input
-                  type="text"
-                  name="fornecedor"
-                  value={formData.fornecedor}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                  placeholder="Nome do fornecedor"
-                />
               </div>
 
               <div className="flex gap-3 pt-6">
